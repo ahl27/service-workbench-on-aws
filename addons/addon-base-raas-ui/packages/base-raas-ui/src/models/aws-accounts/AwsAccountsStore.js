@@ -34,6 +34,7 @@ const filterNames = {
   UPDATEME: 'Needs Update',
   NEW: 'Needs Onboarding',
   ERRORED: 'Errored',
+  PENDING: 'Pending',
 };
 
 // A map, with the key being the filter name and the value being the function that will be used to filter the workspace
@@ -98,7 +99,10 @@ const AwsAccountsStore = BaseStore.named('AwsAccountsStore')
       },
 
       updateAwsAccount: async (awsAccountUUID, updatedAcctInfo) => {
-        await updateAwsAccount(awsAccountUUID, updatedAcctInfo);
+        const updatedAccount = await updateAwsAccount(awsAccountUUID, updatedAcctInfo);
+        const currentAccount = self.getAwsAccount(awsAccountUUID);
+        currentAccount.setAwsAccounts(updatedAccount);
+        await self.load();
       },
 
       getBudgetStore: awsAccountUUID => {

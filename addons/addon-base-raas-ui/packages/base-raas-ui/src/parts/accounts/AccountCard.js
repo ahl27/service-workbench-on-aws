@@ -21,6 +21,7 @@ import { Header, Segment, Accordion, Icon, Label, Table, Button } from 'semantic
 import c from 'classnames';
 
 import { createLink } from '@aws-ee/base-ui/dist/helpers/routing';
+import AccountDetailTable from './AccountDetailTable';
 
 const statusDisplay = {
   CURRENT: { color: 'green', display: 'Up-to-Date' },
@@ -28,6 +29,7 @@ const statusDisplay = {
   NEEDSONBOARD: { color: 'purple', display: 'Needs Onboarding' },
   NOSTACKNAME: { color: 'yellow', display: 'Stack Name Missing' },
   ERROR: { color: 'red', display: 'Error' },
+  PENDING: { color: 'yellow', display: 'Pending', spinner: true },
   UNKNOWN: { color: 'grey', display: 'Unknown' },
 };
 
@@ -112,7 +114,7 @@ class AccountCard extends React.Component {
               permissionStatus === 'NEEDSONBOARD' ||
               permissionStatus === 'NOSTACKNAME') &&
               this.renderUpdatePermsButton()}
-            {this.renderDetailsAccordion(account)}
+            {this.renderDetails(account.id)}
           </div>
         </div>
       </Segment>
@@ -149,8 +151,22 @@ class AccountCard extends React.Component {
     const state = statusDisplay[status] || statusDisplay.UNKNOWN;
     return (
       <Label attached="top left" size="mini" color={state.color}>
+        {state.spinner && <Icon name="spinner" loading />}
         {state.display}
       </Label>
+    );
+  }
+
+  renderDetails(accountId) {
+    const expanded = this.detailsExpanded;
+    return (
+      <Accordion className="mt2">
+        <Accordion.Title active={expanded} index={0} onClick={this.handleDetailsExpanded}>
+          <Icon name="dropdown" />
+          <b>Details</b>
+        </Accordion.Title>
+        <Accordion.Content active={expanded}>{expanded && <AccountDetailTable id={accountId} />}</Accordion.Content>
+      </Accordion>
     );
   }
 
