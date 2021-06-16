@@ -13,6 +13,7 @@
  *  permissions and limitations under the License.
  */
 
+import _ from 'lodash';
 import React from 'react';
 import { action, decorate, observable, runInAction } from 'mobx';
 import { inject, observer } from 'mobx-react';
@@ -47,7 +48,7 @@ const rowKeyVal = {
   encryptionKeyArn: 'Encryption Key ARN',
 };
 
-const requiredProps = ['id', 'rev', 'roleArn', 'externalId'];
+const valsToOmit = ['createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'budget'];
 
 // expected props
 // - account UUID
@@ -86,13 +87,6 @@ class AccountDetailTable extends React.Component {
     return curAccountInfo;
   }
 
-  updateFormInputs() {
-    const account = this.getCurrentAccountInfo();
-    requiredProps.forEach(key => {
-      this.formInputs[key] = account[key];
-    });
-  }
-
   enableEditMode = () => {
     // Show edit dropdowns via observable
     this.editModeOn = true;
@@ -102,7 +96,6 @@ class AccountDetailTable extends React.Component {
     this.editModeOn = false;
     this.isProcessing = false;
     this.formInputs = {};
-    this.updateFormInputs();
   };
 
   submitUpdate = async () => {
@@ -131,7 +124,7 @@ class AccountDetailTable extends React.Component {
         throw Error(errArray.join(' '));
       }
 
-      await store.updateAwsAccount(id, this.formInputs);
+      await store.updateAwsAccount(id, _.omit(toUpdate, valsToOmit));
       displaySuccess('Update Succeeded');
       runInAction(() => {
         this.resetForm();
