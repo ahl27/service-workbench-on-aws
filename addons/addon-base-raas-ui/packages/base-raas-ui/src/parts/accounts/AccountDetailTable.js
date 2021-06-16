@@ -17,10 +17,12 @@ import React from 'react';
 import { action, decorate, observable, runInAction } from 'mobx';
 import { inject, observer } from 'mobx-react';
 import { Button, Dimmer, Loader, Icon, Table } from 'semantic-ui-react';
+// import Form from '@aws-ee/base-ui/dist/parts/helpers/fields/Form';
+import validate from '@aws-ee/base-ui/dist/models/forms/Validate';
 
 import { displayError, displaySuccess } from '@aws-ee/base-ui/dist/helpers/notification';
 import { swallowError } from '@aws-ee/base-ui/dist/helpers/utils';
-import _ from 'lodash';
+import { getUpdateAwsAccountFormFields } from '../../models/forms/UpdateAwsAccountForm';
 
 // Some values will be pulled from the CFN, so the user shouldn't be updating them
 const disabledProps = {
@@ -56,6 +58,7 @@ class AccountDetailTable extends React.Component {
     runInAction(() => {
       this.resetForm();
     });
+    this.updateAwsAccountFormFields = getUpdateAwsAccountFormFields();
   }
 
   componentDidMount() {
@@ -102,13 +105,6 @@ class AccountDetailTable extends React.Component {
     this.updateFormInputs();
   };
 
-  checkRequiredValues = () => {
-    Object.keys(disabledProps).forEach(key => {
-      if (!disabledProps[key] && (_.isNil(this.formInputs[key]) || this.formInputs[key] === ''))
-        throw Error(`The ${key} field cannot be blank`);
-    });
-  };
-
   submitUpdate = async () => {
     runInAction(() => {
       this.isProcessing = true;
@@ -116,11 +112,25 @@ class AccountDetailTable extends React.Component {
     // Perform update
 
     try {
-      this.updateFormInputs(); // Sometimes there's some backend lag if the user tries to update back-to-back
-      this.formInputs.permissionStatus = 'PENDING';
-      this.checkRequiredValues();
       const store = this.getAwsAccountsStore();
+      const account = this.getCurrentAccountInfo();
       const id = this.props.id;
+
+      this.formInputs.permissionStatus = 'PENDING';
+      const toUpdate = { ...account, ...this.formInputs };
+
+      // Attempt to validate on client side before making the API call
+      const validationResult = await validate(toUpdate, this.updateAwsAccountFormFields);
+      if (validationResult.fails()) {
+        const errs = validationResult.errors.errors;
+        const errArray = [];
+        Object.keys(errs).forEach(key => {
+          const errmessage = errs[key].join(' ').replace(key, rowKeyVal[key]);
+          errArray.push(errmessage);
+        });
+        throw Error(errArray.join(' '));
+      }
+
       await store.updateAwsAccount(id, this.formInputs);
       displaySuccess('Update Succeeded');
       runInAction(() => {
@@ -195,9 +205,7 @@ class AccountDetailTable extends React.Component {
     const account = this.getCurrentAccountInfo();
     const onChangeAction = action(event => {
       event.preventDefault();
-      this.formInputs[rowKey] = event.target.value === '' ? event.target.value : '';
-      // empty string is autoconverted to NULL in the backend, which crashes things
-      // a space is functionally the same without causing weird problems
+      this.formInputs[rowKey] = event.target.value;
     });
     return (
       <div className="ui fluid input">
