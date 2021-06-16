@@ -110,9 +110,7 @@ class AccountCard extends React.Component {
             {this.renderBudgetButton()}
             {this.renderHeader(account)}
             {this.renderDescription(account)}
-            {(permissionStatus === 'NEEDSUPDATE' ||
-              permissionStatus === 'NEEDSONBOARD' ||
-              permissionStatus === 'NOSTACKNAME') &&
+            {(permissionStatus === 'NEEDSUPDATE' || permissionStatus === 'NEEDSONBOARD') &&
               this.renderUpdatePermsButton()}
             {this.renderDetails(account.id)}
           </div>
@@ -148,7 +146,7 @@ class AccountCard extends React.Component {
   }
 
   renderStatus(status) {
-    const state = statusDisplay[status] || statusDisplay.UNKNOWN;
+    const state = statusDisplay[status] || statusDisplay.ERROR;
     return (
       <Label attached="top left" size="mini" color={state.color}>
         {state.spinner && <Icon name="spinner" loading />}
@@ -230,8 +228,6 @@ class AccountCard extends React.Component {
     const buttonArgs =
       permissionStatus === 'NEEDSUPDATE'
         ? { message: 'Update Permissions', color: 'orange', onClick: this.handleUpdateAccountPerms }
-        : permissionStatus === 'NOSTACKNAME'
-        ? { message: 'Input Stack Name', color: 'yellow', onClick: this.handleInputCfnStackName }
         : { message: 'Onboard Account', color: 'purple', onClick: this.handleOnboardAccount };
     // This button is only displayed if permissionStatus is NEEDSUPDATE, NEEDSONBOARD, or NOSTACKNAME
     return (

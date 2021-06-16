@@ -18,10 +18,9 @@ import { action, decorate, observable, runInAction } from 'mobx';
 import { inject, observer } from 'mobx-react';
 import { Button, Dimmer, Loader, Icon, Table } from 'semantic-ui-react';
 
-// import Form from '@aws-ee/base-ui/dist/parts/helpers/fields/Form';
-// import Input from '@aws-ee/base-ui/dist/parts/helpers/fields/Input';
 import { displayError, displaySuccess } from '@aws-ee/base-ui/dist/helpers/notification';
 import { swallowError } from '@aws-ee/base-ui/dist/helpers/utils';
+import _ from 'lodash';
 
 // Some values will be pulled from the CFN, so the user shouldn't be updating them
 const disabledProps = {
@@ -63,6 +62,7 @@ class AccountDetailTable extends React.Component {
     const awsAccountsStore = this.props.awsAccountsStore;
     swallowError(awsAccountsStore.load());
     awsAccountsStore.startHeartbeat();
+    // Without the heartbeat, the UI won't update correctly when an update is pushed
   }
 
   componentWillUnmount() {
@@ -77,53 +77,51 @@ class AccountDetailTable extends React.Component {
 
   getCurrentAccountInfo() {
     const store = this.getAwsAccountsStore();
+    swallowError(store.load());
     const id = this.props.id;
     const curAccountInfo = store.getAwsAccount(id);
     return curAccountInfo;
   }
 
-  updateAwsAccountInfo() {
-    const store = this.getAwsAccountsStore();
-    const id = this.props.id;
-    const curAccountInfo = store.getAwsAccount(id);
-    this.accountInfo = { ...curAccountInfo };
+  updateFormInputs() {
+    const account = this.getCurrentAccountInfo();
+    requiredProps.forEach(key => {
+      this.formInputs[key] = account[key];
+    });
   }
 
   enableEditMode = () => {
     // Show edit dropdowns via observable
     this.editModeOn = true;
-    const store = this.getAwsAccountsStore();
-    store.stopHeartbeat();
   };
 
   resetForm = () => {
     this.editModeOn = false;
     this.isProcessing = false;
-    const store = this.getAwsAccountsStore();
-    store.startHeartbeat();
-    this.updateAwsAccountInfo();
+    this.formInputs = {};
+    this.updateFormInputs();
+  };
+
+  checkRequiredValues = () => {
+    Object.keys(disabledProps).forEach(key => {
+      if (!disabledProps[key] && (_.isNil(this.formInputs[key]) || this.formInputs[key] === ''))
+        throw Error(`The ${key} field cannot be blank`);
+    });
   };
 
   submitUpdate = async () => {
     runInAction(() => {
       this.isProcessing = true;
     });
-
-    const localAccount = this.accountInfo;
-    const remoteAccount = this.getCurrentAccountInfo();
     // Perform update
 
     try {
-      const diffs = {};
-      Object.keys(remoteAccount).forEach(key => {
-        if (requiredProps.includes(key) || localAccount[key] !== remoteAccount[key]) {
-          diffs[key] = localAccount[key] || '';
-        }
-      });
-      diffs.permissionStatus = 'PENDING';
+      this.updateFormInputs(); // Sometimes there's some backend lag if the user tries to update back-to-back
+      this.formInputs.permissionStatus = 'PENDING';
+      this.checkRequiredValues();
       const store = this.getAwsAccountsStore();
       const id = this.props.id;
-      await store.updateAwsAccount(id, diffs);
+      await store.updateAwsAccount(id, this.formInputs);
       displaySuccess('Update Succeeded');
       runInAction(() => {
         this.resetForm();
@@ -137,7 +135,7 @@ class AccountDetailTable extends React.Component {
   };
 
   render() {
-    this.updateAwsAccountInfo();
+    const account = this.getCurrentAccountInfo();
 
     return (
       <div className="mb2">
@@ -163,7 +161,7 @@ class AccountDetailTable extends React.Component {
                 {Object.keys(rowKeyVal).map(entry => (
                   <Table.Row key={entry}>
                     <Table.Cell>{rowKeyVal[entry]}</Table.Cell>
-                    <Table.Cell>{this.editModeOn ? this.renderRowInput(entry) : this.accountInfo[entry]}</Table.Cell>
+                    <Table.Cell>{this.editModeOn ? this.renderRowInput(entry) : account[entry]}</Table.Cell>
                   </Table.Row>
                 ))}
               </Table.Body>
@@ -193,48 +191,22 @@ class AccountDetailTable extends React.Component {
     );
   }
 
-  //   renderForm() {
-  //     const account = this.getCurrentAccountInfo();
-
-  //     return (
-  //       <Form form={form} onCancel={this.handleCancel} onSuccess={this.handleFormSubmission}>
-  //         {({ processing, onCancel }) => (
-  //           <>
-  //             <Input field={form.$('budgetLimit')} type="number" />
-  //             <Input field={form.$('startDate')} type="date" />
-  //             <Input field={form.$('endDate')} type="date" />
-  //             <Input field={form.$('thresholds')} options={thresholdsOptions} multiple selection clearable fluid />
-  //             <Input field={form.$('notificationEmail')} type="email" />
-  //             <div className="mt3">
-  //               <Button
-  //                 floated="right"
-  //                 primary
-  //                 className="ml2"
-  //                 type="submit"
-  //                 content="Update Account"
-  //                 disabled={this.isProcessing}
-  //               />
-  //               <Button floated="right" onClick={this.resetForm} content="Cancel" disabled={this.isProcessing} />
-  //             </div>
-  //           </>
-  //         )}
-  //       </Form>
-  //     );
-  //   }
-
   renderRowInput(rowKey) {
+    const account = this.getCurrentAccountInfo();
     const onChangeAction = action(event => {
       event.preventDefault();
-      this.accountInfo[rowKey] = typeof event.target.value === 'string' ? event.target.value : '';
+      this.formInputs[rowKey] = event.target.value === '' ? event.target.value : '';
+      // empty string is autoconverted to NULL in the backend, which crashes things
+      // a space is functionally the same without causing weird problems
     });
     return (
       <div className="ui fluid input">
         <input
           type="text"
-          defaultValue={this.accountInfo[rowKey]}
-          placeholder={this.accountInfo[rowKey] || ''}
+          defaultValue={account[rowKey]}
           onChange={onChangeAction}
           disabled={disabledProps[rowKey]}
+          required={!disabledProps[rowKey]}
         />
       </div>
     );
