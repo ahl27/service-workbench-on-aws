@@ -97,7 +97,7 @@ class AwsCfnService extends Service {
 
         // whitespace and comments removed before comparison
         const curPermissions = await this.getStackTemplate(requestContext, account);
-        const trimmedCurPermString = curPermissions.permissionsTemplateStr.replace(/#.*/g, '').replace(/\s+/g, '');
+        const trimmedCurPermString = curPermissions.replace(/#.*/g, '').replace(/\s+/g, '');
         const trimmedExpPermString = expectedTemplate.replace(/#.*/g, '').replace(/\s+/g, '');
 
         res = trimmedExpPermString !== trimmedCurPermString ? 'NEEDSUPDATE' : 'CURRENT';
