@@ -69,6 +69,10 @@ function getAllAccountsPermissionStatus() {
   return httpApiGet(`api/aws-accounts/permissions`);
 }
 
+function testAccountPermissionStatus(awsAccount) {
+  return httpApiPost(`api/aws-accounts/permissions`, { data: awsAccount });
+}
+
 function addIndex(index) {
   return httpApiPost('api/indexes', { data: index });
 }
@@ -374,6 +378,7 @@ export {
   updateAwsAccount,
   getAccountPermissionsStatus,
   getAllAccountsPermissionStatus,
+  testAccountPermissionStatus,
   getStepTemplates,
   getEnvironments,
   getEnvironment,

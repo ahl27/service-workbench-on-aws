@@ -15,7 +15,7 @@
 
 import _ from 'lodash';
 import React from 'react';
-import { action, decorate, observable, runInAction } from 'mobx';
+import { action, decorate, observable, computed, runInAction } from 'mobx';
 import { inject, observer } from 'mobx-react';
 import { Button, Dimmer, Loader, Icon, Table } from 'semantic-ui-react';
 // import Form from '@aws-ee/base-ui/dist/parts/helpers/fields/Form';
@@ -73,8 +73,14 @@ class AccountDetailTable extends React.Component {
     return curAccountInfo;
   }
 
+  get account() {
+    const store = this.getAwsAccountsStore();
+    const id = this.props.id;
+    const curAccountInfo = store.getAwsAccount(id);
+    return curAccountInfo;
+  }
+
   enableEditMode = () => {
-    // Show edit dropdowns via observable
     this.editModeOn = true;
   };
 
@@ -92,12 +98,11 @@ class AccountDetailTable extends React.Component {
 
     try {
       const store = this.getAwsAccountsStore();
-      const account = this.getCurrentAccountInfo();
+      const account = this.account;
       const id = this.props.id;
 
       const toUpdate = { ...this.formInputs, id: account.id, rev: account.rev };
       const updaterKeys = Object.keys(this.formInputs);
-      console.log(toUpdate);
       if (updaterKeys.includes('cfnStackName') || updaterKeys.includes('roleArn')) {
         toUpdate.permissionStatus = 'PENDING';
         const newStatus = await store.checkAccountPermissionStatus(id);
@@ -117,7 +122,7 @@ class AccountDetailTable extends React.Component {
       }
       await store.updateAwsAccount(id, _.omit(toUpdate, valsToOmit));
 
-      displaySuccess('Update Succeeded! Changes may take 2-3 seconds to appear.');
+      displaySuccess('Update Succeeded!');
       runInAction(() => {
         this.resetForm();
       });
@@ -125,12 +130,13 @@ class AccountDetailTable extends React.Component {
       displayError('Update Failed', error);
       runInAction(() => {
         this.isProcessing = false;
+        // this.resetForm();
       });
     }
   };
 
   render() {
-    const account = this.getCurrentAccountInfo();
+    const account = this.account;
 
     return (
       <div className="mb2">
@@ -187,7 +193,7 @@ class AccountDetailTable extends React.Component {
   }
 
   renderRowInput(rowKey) {
-    const account = this.getCurrentAccountInfo();
+    const account = this.account;
     const onChangeAction = action(event => {
       event.preventDefault();
       this.formInputs[rowKey] = event.target.value;
@@ -207,6 +213,7 @@ class AccountDetailTable extends React.Component {
 }
 
 decorate(AccountDetailTable, {
+  account: computed,
   editModeOn: observable,
   isProcessing: observable,
   enableEditMode: action,

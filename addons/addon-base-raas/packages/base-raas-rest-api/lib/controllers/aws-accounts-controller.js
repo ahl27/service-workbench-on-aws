@@ -49,6 +49,20 @@ async function configure(context) {
   );
 
   // ===============================================================
+  //  POST /permissions (mounted to /api/aws-accounts)
+  // ===============================================================
+  router.post(
+    '/permissions',
+    wrap(async (req, res) => {
+      const requestContext = res.locals.requestContext;
+      const acctInBody = req.body;
+      const result = await awsAccountsService.dryRunAccountPermCheck(requestContext, acctInBody);
+
+      res.status(200).json(result);
+    }),
+  );
+
+  // ===============================================================
   //  GET /:id/permissions (mounted to /api/aws-accounts)
   // ===============================================================
   router.get(

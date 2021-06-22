@@ -23,7 +23,7 @@ import {
   createAwsAccount,
   updateAwsAccount,
   getAllAccountsPermissionStatus,
-  getAccountPermissionsStatus,
+  testAccountPermissionStatus,
 } from '../../helpers/api';
 import { AwsAccount } from './AwsAccount';
 import { BudgetStore } from './BudgetStore';
@@ -55,7 +55,7 @@ const AwsAccountsStore = BaseStore.named('AwsAccountsStore')
   .props({
     awsAccounts: types.optional(types.map(AwsAccount), {}),
     budgetStores: types.optional(types.map(BudgetStore), {}),
-    tickPeriod: 10 * 1000, // 100 sec
+    tickPeriod: 10 * 1000, // 10 sec
   })
 
   .actions(self => {
@@ -100,13 +100,18 @@ const AwsAccountsStore = BaseStore.named('AwsAccountsStore')
       },
 
       updateAwsAccount: async (awsAccountUUID, updatedAcctInfo) => {
-        const updatedAccount = await updateAwsAccount(awsAccountUUID, updatedAcctInfo);
         const currentAccount = self.getAwsAccount(awsAccountUUID);
+        const newPermissions = await self.checkAccountPermissionStatus(currentAccount, updatedAcctInfo);
+        const updatedAccount = await updateAwsAccount(awsAccountUUID, {
+          ...updatedAcctInfo,
+          permissionStatus: newPermissions.status,
+        });
         currentAccount.setAwsAccounts(updatedAccount);
       },
 
-      checkAccountPermissionStatus: async awsAccountUUID => {
-        const res = await getAccountPermissionsStatus(awsAccountUUID);
+      checkAccountPermissionStatus: async (account, updates) => {
+        const acctToCheck = { ...account, ...updates };
+        const res = await testAccountPermissionStatus(acctToCheck);
         return res;
       },
 

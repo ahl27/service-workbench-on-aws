@@ -75,7 +75,6 @@ class AccountCard extends React.Component {
   handleDetailsExpanded = async () => {
     this.detailsExpanded = !this.detailsExpanded;
     const store = this.awsAccountsStore;
-    console.log(this.detailsExpanded);
     if (this.detailsExpanded) {
       await store.load();
       store.stopHeartbeat();

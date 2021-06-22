@@ -371,6 +371,18 @@ class AwsAccountsService extends Service {
     return { statuses, errors };
   }
 
+  async dryRunAccountPermCheck(requestContext, account) {
+    await this.assertAuthorized(
+      requestContext,
+      { action: 'check-aws-permissions', conditions: [allowIfActive, allowIfAdmin] },
+      { account },
+    );
+    const awsCfnService = await this.service('awsCfnService');
+    const res = await awsCfnService.checkAccountPermissions(requestContext, account);
+    await this.audit(requestContext, { action: 'check-aws-permissions', body: { account } });
+    return res;
+  }
+
   // Do some properties renaming to prepare the object to be saved in the database
   _fromRawToDbObject(rawObject, overridingProps = {}) {
     const dbObject = { ...rawObject, ...overridingProps };
