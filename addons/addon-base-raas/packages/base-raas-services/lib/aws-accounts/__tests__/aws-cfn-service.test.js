@@ -146,11 +146,6 @@ describe('AwsCfnService', () => {
       }
     });
 
-    it('should try to update the account from NEEDSUPDATE to CURRENT', async () => {
-      const res = await service.checkAccountPermissions(requestContext, mockAccount);
-      expect(res.status).toEqual('CURRENT');
-    });
-
     it('should correctly set account with undefined cfnStackName to NEEDSONBOARD or NOSTACKNAME', async () => {
       // This account should remain the same
       const needsOnboardMock = {

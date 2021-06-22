@@ -90,4 +90,19 @@ describe('AwsAccountsStore', () => {
       expect(retVal).toMatchObject(store.list);
     });
   });
+<<<<<<< HEAD
+=======
+
+  describe('updateAccount', () => {
+    it('should try to update the account with updated permissions', async () => {
+      const erroredAcct = { id: 'testid', permissionsStatus: 'CURRENT' };
+      const newPermRetVal = { newStatus: { testid: 'NEEDSUPDATE' } };
+      getAllAccountsPermissionStatus.mockResolvedValue(newPermRetVal);
+      await store.load();
+      await store.updateAwsAccount(erroredAcct.id, erroredAcct);
+
+      expect(updateAwsAccount).toHaveBeenCalledWith(erroredAcct.id, erroredAcct);
+    });
+  });
+>>>>>>> upstream/feat-update-user-permissions
 });
