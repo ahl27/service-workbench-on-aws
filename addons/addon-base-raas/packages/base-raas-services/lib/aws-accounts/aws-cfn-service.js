@@ -77,7 +77,6 @@ class AwsCfnService extends Service {
     return permissionsTemplateRaw.TemplateBody;
   }
 
-<<<<<<< HEAD
   async checkAccountPermissions(requestContext, account) {
     await this.assertAuthorized(
       requestContext,
@@ -107,61 +106,6 @@ class AwsCfnService extends Service {
         errorMsg = e.safe // if error is boom error then see if it is safe to propagate its message
           ? `Error checking permissions for account ${account.accountId}. ${e.message}`
           : `Error checking permissions for account ${account.accountId}`;
-=======
-  async checkAccountPermissions(requestContext, accountId) {
-    await this.assertAuthorized(
-      requestContext,
-      { action: 'check-aws-permissions', conditions: [allowIfActive, allowIfAdmin] },
-      { accountId },
-    );
-    const awsAccountsService = await this.service('awsAccountsService');
-    const accountEntity = await awsAccountsService.mustFind(requestContext, { id: accountId });
-
-    const [cfnTemplateService] = await this.service(['cfnTemplateService']);
-    const expectedTemplate = await cfnTemplateService.getTemplate('onboard-account');
-
-    // whitespace and comments removed before comparison
-    const curPermissions = await this.getStackTemplate(requestContext, accountEntity);
-    const trimmedCurPermString = curPermissions.replace(/#.*/g, '').replace(/\s+/g, '');
-    const trimmedExpPermString = expectedTemplate.replace(/#.*/g, '').replace(/\s+/g, '');
-
-    // still hash values
-    return trimmedExpPermString !== trimmedCurPermString ? 'NEEDSUPDATE' : 'CURRENT';
-  }
-
-  async batchCheckAccountPermissions(requestContext, batchSize = 5) {
-    await this.assertAuthorized(
-      requestContext,
-      { action: 'check-aws-permissions-batch', conditions: [allowIfActive, allowIfAdmin] },
-      {},
-    );
-
-    const awsAccountsService = await this.service('awsAccountsService');
-    const accountsList = await awsAccountsService.list();
-
-    const newStatus = {};
-    const errors = {};
-    const idList = accountsList.forEach(account => account.accountId);
-    let res;
-    let errorMsg = '';
-
-    const checkPermissions = async account => {
-      if (account.cfnStackName === '') {
-        res = account.permissionStatus === 'NEEDSONBOARD' ? 'NEEDSONBOARD' : 'NOSTACKNAME';
-        errorMsg = `Error: Account ${account.accountId} has no CFN stack name specified.`;
-      } else {
-        try {
-          res = await this.checkAccountPermissions(requestContext, account.id);
-        } catch (e) {
-          res = 'ERRORED';
-          errorMsg = e.safe // if error is boom error then see if it is safe to propagate its message
-            ? `Error checking permissions for account ${account.accountId}. ${e.message}`
-            : `Error checking permissions for account ${account.accountId}`;
-        }
-      }
-
-      if (errorMsg !== '') {
->>>>>>> upstream/feat-update-user-permissions
         this.log.error(errorMsg);
       }
     }

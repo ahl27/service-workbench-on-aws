@@ -43,7 +43,6 @@ async function configure(context) {
     '/permissions',
     wrap(async (req, res) => {
       const requestContext = res.locals.requestContext;
-<<<<<<< HEAD
       const result = await awsAccountsService.checkAllAccountPermissions(requestContext);
       res.status(200).json(result);
     }),
@@ -59,9 +58,6 @@ async function configure(context) {
       const accountId = req.params.id;
 
       const result = await awsAccountsService.checkAccountPermissions(requestContext, accountId);
-=======
-      const result = await awsCfnService.batchCheckAccountPermissions(requestContext);
->>>>>>> upstream/feat-update-user-permissions
       res.status(200).json(result);
     }),
   );
@@ -126,23 +122,6 @@ async function configure(context) {
     }),
   );
 
-<<<<<<< HEAD
-=======
-  // ===============================================================
-  //  GET /:id/permissions (mounted to /api/aws-accounts)
-  // ===============================================================
-  router.get(
-    '/:id/permissions',
-    wrap(async (req, res) => {
-      const requestContext = res.locals.requestContext;
-      const accountId = req.params.id;
-
-      const result = await awsCfnService.checkAccountPermissions(requestContext, accountId);
-      res.status(200).json(result);
-    }),
-  );
-
->>>>>>> upstream/feat-update-user-permissions
   return router;
 }
 
