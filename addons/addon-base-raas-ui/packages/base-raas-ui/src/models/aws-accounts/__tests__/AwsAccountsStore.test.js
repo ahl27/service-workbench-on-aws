@@ -13,7 +13,7 @@
  *  permissions and limitations under the License.
  */
 
-import { getAwsAccounts, addAwsAccount, updateAwsAccount, getAllAccountsPermissionStatus } from '../../../helpers/api';
+import { getAwsAccounts, addAwsAccount, getAllAccountsPermissionStatus } from '../../../helpers/api';
 import { registerContextItems as registerAwsAccountsStore } from '../AwsAccountsStore';
 
 jest.mock('../../../helpers/api');
@@ -37,7 +37,7 @@ describe('AwsAccountsStore', () => {
     permissionStatus: 'CURRENT',
     cfnStackName: 'testCfnName',
   };
-  const permRetVal = { newStatus: { mouserat: 'CURRENT' } };
+  const permRetVal = { status: { mouserat: 'CURRENT' } };
 
   beforeEach(async () => {
     await registerAwsAccountsStore(appContext);
@@ -88,18 +88,6 @@ describe('AwsAccountsStore', () => {
 
       // CHECK
       expect(retVal).toMatchObject(store.list);
-    });
-  });
-
-  describe('updateAccount', () => {
-    it('should fail to update account due to validation errors', async () => {
-      const erroredAcct = { id: 'testid', permissionsStatus: 'CURRENT' };
-      const newPermRetVal = { newStatus: { testid: 'NEEDSUPDATE' } };
-      getAllAccountsPermissionStatus.mockResolvedValue(newPermRetVal);
-      await store.load();
-      await store.updateAwsAccount(erroredAcct.id, erroredAcct);
-
-      expect(updateAwsAccount).toHaveBeenCalledWith(erroredAcct.id, erroredAcct);
     });
   });
 });

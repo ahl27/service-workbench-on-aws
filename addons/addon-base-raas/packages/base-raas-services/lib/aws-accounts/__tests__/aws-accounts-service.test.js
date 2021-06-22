@@ -38,6 +38,9 @@ const LockServiceMock = require('@aws-ee/base-services/lib/lock/lock-service');
 jest.mock('@aws-ee/base-services/lib/s3-service');
 const S3ServiceMock = require('@aws-ee/base-services/lib/s3-service');
 
+jest.mock('../aws-cfn-service');
+const AwsCfnServiceMock = require('../aws-cfn-service');
+
 const AwsAccountService = require('../aws-accounts-service');
 
 describe('AwsAccountService', () => {
@@ -55,6 +58,7 @@ describe('AwsAccountService', () => {
     container.register('settings', new SettingsServiceMock());
     container.register('lockService', new LockServiceMock());
     container.register('s3Service', new S3ServiceMock());
+    container.register('awsCfnService', new AwsCfnServiceMock());
     container.register('awsAccountService', new AwsAccountService());
     await container.initServices();
 

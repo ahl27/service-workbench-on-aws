@@ -17,7 +17,6 @@ const _ = require('lodash');
 const Service = require('@aws-ee/base-services-container/lib/service');
 // const { runAndCatch } = require('@aws-ee/base-services/lib/helpers/utils');
 const { allowIfActive, allowIfAdmin } = require('@aws-ee/base-services/lib/authorization/authorization-utils');
-const { processInBatches } = require('@aws-ee/base-services/lib/helpers/utils');
 
 // const { generateId } = require('../helpers/utils');
 
@@ -39,7 +38,6 @@ class AwsCfnService extends Service {
       'authorizationService',
       'auditWriterService',
       'cfnTemplateService',
-      'awsAccountsService',
     ]);
   }
 
@@ -82,82 +80,40 @@ class AwsCfnService extends Service {
     };
   }
 
-  async checkAccountPermissions(requestContext, accountEntity) {
+  async checkAccountPermissions(requestContext, account) {
     await this.assertAuthorized(
       requestContext,
       { action: 'check-aws-permissions', conditions: [allowIfActive, allowIfAdmin] },
-      { accountEntity },
+      { account },
     );
-    const [cfnTemplateService] = await this.service(['cfnTemplateService']);
-    const expectedTemplate = await cfnTemplateService.getTemplate('onboard-account');
-
-    // whitespace and comments removed before comparison
-    const curPermissions = await this.getStackTemplate(requestContext, accountEntity);
-    const trimmedCurPermString = curPermissions.permissionsTemplateStr.replace(/#.*/g, '').replace(/\s+/g, '');
-    const trimmedExpPermString = expectedTemplate.replace(/#.*/g, '').replace(/\s+/g, '');
-
-    // still hash values
-    return trimmedExpPermString !== trimmedCurPermString ? 'NEEDSUPDATE' : 'CURRENT';
-  }
-
-  async batchCheckAccountPermissions(requestContext, accountsList, batchSize = 5) {
-    await this.assertAuthorized(
-      requestContext,
-      { action: 'check-aws-permissions-batch', conditions: [allowIfActive, allowIfAdmin] },
-      { accountsList },
-    );
-
-    const awsAccountsService = await this.service('awsAccountsService');
-    const newStatus = {};
-    const errors = {};
-    const idList = accountsList.forEach(account => account.accountId);
     let res;
-    let errorMsg = '';
+    let errorMsg = 'No Issues.';
 
-    const checkPermissions = async account => {
-      if (account.cfnStackName === '') {
-        res = account.permissionStatus === 'NEEDSONBOARD' ? 'NEEDSONBOARD' : 'NOSTACKNAME';
-        errorMsg = `Error: Account ${account.accountId} has no CFN stack name specified.`;
-      } else {
-        try {
-          res = await this.checkAccountPermissions(requestContext, account);
-        } catch (e) {
-          res = 'ERRORED';
-          errorMsg = e.safe // if error is boom error then see if it is safe to propagate its message
-            ? `Error checking permissions for account ${account.accountId}. ${e.message}`
-            : `Error checking permissions for account ${account.accountId}`;
-        }
-      }
+    if (account.cfnStackName === '') {
+      res = account.permissionStatus === 'NEEDSONBOARD' ? 'NEEDSONBOARD' : 'NOSTACKNAME';
+      errorMsg = `Error: Account ${account.accountId} has no CFN stack name specified.`;
+      this.log.error(errorMsg);
+    } else {
+      try {
+        const [cfnTemplateService] = await this.service(['cfnTemplateService']);
+        const expectedTemplate = await cfnTemplateService.getTemplate('onboard-account');
 
-      if (errorMsg !== '') {
+        // whitespace and comments removed before comparison
+        const curPermissions = await this.getStackTemplate(requestContext, account);
+        const trimmedCurPermString = curPermissions.permissionsTemplateStr.replace(/#.*/g, '').replace(/\s+/g, '');
+        const trimmedExpPermString = expectedTemplate.replace(/#.*/g, '').replace(/\s+/g, '');
+
+        res = trimmedExpPermString !== trimmedCurPermString ? 'NEEDSUPDATE' : 'CURRENT';
+      } catch (e) {
+        res = 'ERRORED';
+        errorMsg = e.safe // if error is boom error then see if it is safe to propagate its message
+          ? `Error checking permissions for account ${account.accountId}. ${e.message}`
+          : `Error checking permissions for account ${account.accountId}`;
         this.log.error(errorMsg);
-        errors[account.id] = errorMsg;
       }
+    }
 
-      newStatus[account.id] = res;
-      if (res !== account.permissionStatus) {
-        const updatedAcct = {
-          id: account.id,
-          rev: account.rev,
-          roleArn: account.roleArn,
-          externalId: account.externalId,
-          permissionStatus: res,
-        };
-        await awsAccountsService.update(requestContext, updatedAcct);
-      }
-    };
-
-    // Check permissions in parallel in the specified batches
-    await processInBatches(accountsList, batchSize, checkPermissions);
-    await this.audit(requestContext, {
-      action: 'check-aws-permissions-batch',
-      body: {
-        totalAccounts: _.size(accountsList),
-        usersChecked: idList,
-        errors,
-      },
-    });
-    return { newStatus, errors };
+    return { status: res, info: errorMsg };
   }
 
   // @private

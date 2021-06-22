@@ -22,7 +22,6 @@ import { Button, Dimmer, Loader, Icon, Table } from 'semantic-ui-react';
 import validate from '@aws-ee/base-ui/dist/models/forms/Validate';
 
 import { displayError, displaySuccess } from '@aws-ee/base-ui/dist/helpers/notification';
-import { swallowError } from '@aws-ee/base-ui/dist/helpers/utils';
 import { getUpdateAwsAccountFormFields } from '../../models/forms/UpdateAwsAccountForm';
 
 // Some values will be pulled from the CFN, so the user shouldn't be updating them
@@ -62,18 +61,6 @@ class AccountDetailTable extends React.Component {
     this.updateAwsAccountFormFields = getUpdateAwsAccountFormFields();
   }
 
-  componentDidMount() {
-    const awsAccountsStore = this.props.awsAccountsStore;
-    swallowError(awsAccountsStore.load());
-    awsAccountsStore.startHeartbeat();
-    // Without the heartbeat, the UI won't update correctly when an update is pushed
-  }
-
-  componentWillUnmount() {
-    const awsAccountsStore = this.props.awsAccountsStore;
-    awsAccountsStore.stopHeartbeat();
-  }
-
   getAwsAccountsStore() {
     const store = this.props.awsAccountsStore;
     return store;
@@ -81,7 +68,6 @@ class AccountDetailTable extends React.Component {
 
   getCurrentAccountInfo() {
     const store = this.getAwsAccountsStore();
-    swallowError(store.load());
     const id = this.props.id;
     const curAccountInfo = store.getAwsAccount(id);
     return curAccountInfo;
@@ -109,11 +95,17 @@ class AccountDetailTable extends React.Component {
       const account = this.getCurrentAccountInfo();
       const id = this.props.id;
 
-      this.formInputs.permissionStatus = 'PENDING';
-      const toUpdate = { ...account, ...this.formInputs };
+      const toUpdate = { ...this.formInputs, id: account.id, rev: account.rev };
+      const updaterKeys = Object.keys(this.formInputs);
+      console.log(toUpdate);
+      if (updaterKeys.includes('cfnStackName') || updaterKeys.includes('roleArn')) {
+        toUpdate.permissionStatus = 'PENDING';
+        const newStatus = await store.checkAccountPermissionStatus(id);
+        toUpdate.permissionStatus = newStatus.status;
+      }
 
       // Attempt to validate on client side before making the API call
-      const validationResult = await validate(toUpdate, this.updateAwsAccountFormFields);
+      const validationResult = await validate({ ...account, ...toUpdate }, this.updateAwsAccountFormFields);
       if (validationResult.fails()) {
         const errs = validationResult.errors.errors;
         const errArray = [];
@@ -123,9 +115,9 @@ class AccountDetailTable extends React.Component {
         });
         throw Error(errArray.join(' '));
       }
-
       await store.updateAwsAccount(id, _.omit(toUpdate, valsToOmit));
-      displaySuccess('Update Succeeded');
+
+      displaySuccess('Update Succeeded! Changes may take 2-3 seconds to appear.');
       runInAction(() => {
         this.resetForm();
       });

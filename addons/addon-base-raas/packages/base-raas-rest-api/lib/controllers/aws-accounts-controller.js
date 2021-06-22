@@ -21,7 +21,6 @@ async function configure(context) {
   // const boom = context.boom;
 
   const awsAccountsService = await context.service('awsAccountsService');
-  const awsCfnService = await context.service('awsCfnService');
   const accountService = await context.service('accountService');
 
   // ===============================================================
@@ -44,8 +43,21 @@ async function configure(context) {
     '/permissions',
     wrap(async (req, res) => {
       const requestContext = res.locals.requestContext;
-      const accountsList = await awsAccountsService.list();
-      const result = await awsCfnService.batchCheckAccountPermissions(requestContext, accountsList);
+      const result = await awsAccountsService.checkAllAccountPermissions(requestContext);
+      res.status(200).json(result);
+    }),
+  );
+
+  // ===============================================================
+  //  GET /:id/permissions (mounted to /api/aws-accounts)
+  // ===============================================================
+  router.get(
+    '/:id/permissions',
+    wrap(async (req, res) => {
+      const requestContext = res.locals.requestContext;
+      const accountId = req.params.id;
+
+      const result = await awsAccountsService.checkAccountPermissions(requestContext, accountId);
       res.status(200).json(result);
     }),
   );
@@ -107,23 +119,6 @@ async function configure(context) {
       await accountService.provisionAccount(requestContext, possibleBody);
 
       res.status(200).json({ message: 'account creating' });
-    }),
-  );
-
-  // ===============================================================
-  //  GET /:id/permissions (mounted to /api/aws-accounts)
-  // ===============================================================
-  router.get(
-    '/:id/permissions',
-    wrap(async (req, res) => {
-      const requestContext = res.locals.requestContext;
-      const accountId = req.params.id;
-
-      const accountDetails = await awsAccountsService.mustFind(requestContext, { id: accountId });
-      const result = await awsCfnService.checkAccountPermissions(requestContext, {
-        ...accountDetails,
-      });
-      res.status(200).json(result);
     }),
   );
 

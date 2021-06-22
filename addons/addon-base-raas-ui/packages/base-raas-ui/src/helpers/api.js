@@ -61,7 +61,7 @@ function updateAwsAccount(accountUUID, data) {
   return httpApiPut(`api/aws-accounts/${accountUUID}/update-account`, { data });
 }
 
-function getAccountsPermissionsStatus(accountUUID) {
+function getAccountPermissionsStatus(accountUUID) {
   return httpApiGet(`api/aws-accounts/${accountUUID}/permissions`);
 }
 
@@ -372,7 +372,7 @@ export {
   addAwsAccount,
   createAwsAccount,
   updateAwsAccount,
-  getAccountsPermissionsStatus,
+  getAccountPermissionsStatus,
   getAllAccountsPermissionStatus,
   getStepTemplates,
   getEnvironments,

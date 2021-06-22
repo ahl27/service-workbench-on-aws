@@ -16,7 +16,7 @@
 const _ = require('lodash');
 const Service = require('@aws-ee/base-services-container/lib/service');
 const uuid = require('uuid/v1');
-const { runAndCatch } = require('@aws-ee/base-services/lib/helpers/utils');
+const { runAndCatch, processInBatches } = require('@aws-ee/base-services/lib/helpers/utils');
 const { allowIfActive, allowIfAdmin } = require('@aws-ee/base-services/lib/authorization/authorization-utils');
 
 const { isExternalGuest, isExternalResearcher, isInternalGuest, isInternalResearcher } = require('../helpers/is-role');
@@ -39,6 +39,7 @@ class AwsAccountsService extends Service {
       'lockService',
       's3Service',
       'auditWriterService',
+      'awsCfnService',
     ]);
   }
 
@@ -323,6 +324,51 @@ class AwsAccountsService extends Service {
       .limit(1000)
       .projection(fields)
       .scan();
+  }
+
+  async checkAccountPermissions(requestContext, id) {
+    await this.assertAuthorized(
+      requestContext,
+      { action: 'check-aws-permissions', conditions: [allowIfActive, allowIfAdmin] },
+      { id },
+    );
+    const awsCfnService = await this.service('awsCfnService');
+    const account = await this.mustFind(requestContext, { id });
+    const res = await awsCfnService.checkAccountPermissions(requestContext, account);
+    if (res.status !== account.permissionStatus) {
+      await this.update(requestContext, { id: account.id, rev: account.rev, permissionStatus: res.status });
+    }
+
+    await this.audit(requestContext, { action: 'check-aws-permissions', body: { id } });
+    return res;
+  }
+
+  async checkAllAccountPermissions(requestContext, batchSize = 5) {
+    await this.assertAuthorized(
+      requestContext,
+      { action: 'check-all-aws-permissions', conditions: [allowIfActive, allowIfAdmin] },
+      {},
+    );
+
+    const awsCfnService = await this.service('awsCfnService');
+    const accountsList = await this.list();
+    const statuses = {};
+    accountsList.forEach(account => {
+      statuses[account.id] = account.permissionStatus;
+    });
+    const errors = {};
+
+    await processInBatches(accountsList, batchSize, async account => {
+      const res = await awsCfnService.checkAccountPermissions(requestContext, account);
+      statuses[account.id] = res.status;
+      errors[account.id] = res.info;
+      if (res.status !== account.permissionStatus) {
+        await this.update(requestContext, { id: account.id, rev: account.rev, permissionStatus: res.status });
+      }
+    });
+
+    await this.audit(requestContext, { action: 'check-all-aws-permissions', body: { statuses, errors } });
+    return { statuses, errors };
   }
 
   // Do some properties renaming to prepare the object to be saved in the database

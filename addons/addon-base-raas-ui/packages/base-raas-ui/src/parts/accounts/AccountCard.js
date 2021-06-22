@@ -15,9 +15,9 @@
 
 import React from 'react';
 import { decorate, action, computed, runInAction, observable } from 'mobx';
-import { observer } from 'mobx-react';
+import { observer, inject } from 'mobx-react';
 import { withRouter } from 'react-router-dom';
-import { Header, Segment, Accordion, Icon, Label, Table, Button } from 'semantic-ui-react';
+import { Header, Segment, Accordion, Icon, Label, Button } from 'semantic-ui-react';
 import c from 'classnames';
 
 import { createLink } from '@aws-ee/base-ui/dist/helpers/routing';
@@ -39,6 +39,7 @@ const statusDisplay = {
 // - permissionStatus (via props)
 // - isSelectable (via props)
 // - location (via props)
+// - awsAccountsStore (via injection)
 class AccountCard extends React.Component {
   constructor(props) {
     super(props);
@@ -56,6 +57,10 @@ class AccountCard extends React.Component {
     return this.props.isSelectable;
   }
 
+  get awsAccountsStore() {
+    return this.props.awsAccountsStore;
+  }
+
   get permissionStatus() {
     // Possible Values: CURRENT, NEEDSUPDATE, NEEDSONBOARD, ERRORED, NOSTACKNAME
     return this.props.permissionStatus;
@@ -67,8 +72,16 @@ class AccountCard extends React.Component {
     this.props.history.push(link);
   }
 
-  handleDetailsExpanded = () => {
+  handleDetailsExpanded = async () => {
     this.detailsExpanded = !this.detailsExpanded;
+    const store = this.awsAccountsStore;
+    console.log(this.detailsExpanded);
+    if (this.detailsExpanded) {
+      await store.load();
+      store.stopHeartbeat();
+    } else {
+      store.startHeartbeat();
+    }
   };
 
   handleSelected = () => {
@@ -168,53 +181,6 @@ class AccountCard extends React.Component {
     );
   }
 
-  renderDetailsAccordion(account) {
-    const expanded = this.detailsExpanded;
-    const rowKeyVal = {
-      roleArn: 'Role ARN',
-      externalId: 'External ID',
-      vpcId: 'VPC ID',
-      subnetId: 'Subnet ID',
-      encryptionKeyArn: 'Encryption Key ARN',
-    };
-
-    return (
-      <Accordion className="mt2">
-        <Accordion.Title active={expanded} index={0} onClick={this.handleDetailsExpanded}>
-          <Icon name="dropdown" />
-          <b>Details</b>
-        </Accordion.Title>
-        <Accordion.Content active={expanded}>
-          {expanded && (
-            <div className="mb2">
-              <>
-                <Table striped>
-                  <Table.Body>
-                    {Object.keys(rowKeyVal).map(entry => (
-                      <Table.Row key={entry}>
-                        <Table.Cell>{rowKeyVal[entry]}</Table.Cell>
-                        <Table.Cell>{account[entry]}</Table.Cell>
-                      </Table.Row>
-                    ))}
-                    <Table.Row key="cfnStackName">
-                      <Table.Cell>Cloudformation Stack Name</Table.Cell>
-                      <Table.Cell>
-                        {account.cfnStackName}
-                        <Button floated="right" color="yellow" size="mini" onClick={this.handleInputCfnStackName}>
-                          Edit CFN Name
-                        </Button>
-                      </Table.Cell>
-                    </Table.Row>
-                  </Table.Body>
-                </Table>
-              </>
-            </div>
-          )}
-        </Accordion.Content>
-      </Accordion>
-    );
-  }
-
   renderBudgetButton() {
     return (
       <Button floated="right" color="blue" onClick={this.handleBudgetButton}>
@@ -249,4 +215,4 @@ decorate(AccountCard, {
   permissionStatus: computed,
 });
 
-export default withRouter(observer(AccountCard));
+export default inject('awsAccountsStore')(withRouter(observer(AccountCard)));

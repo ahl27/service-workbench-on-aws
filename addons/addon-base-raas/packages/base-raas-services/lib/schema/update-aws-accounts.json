@@ -60,8 +60,6 @@
   },
   "required": [
     "id",
-    "rev",
-    "roleArn",
-    "externalId"
+    "rev"
   ]
 }

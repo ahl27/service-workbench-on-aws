@@ -23,6 +23,7 @@ import {
   createAwsAccount,
   updateAwsAccount,
   getAllAccountsPermissionStatus,
+  getAccountPermissionsStatus,
 } from '../../helpers/api';
 import { AwsAccount } from './AwsAccount';
 import { BudgetStore } from './BudgetStore';
@@ -54,7 +55,7 @@ const AwsAccountsStore = BaseStore.named('AwsAccountsStore')
   .props({
     awsAccounts: types.optional(types.map(AwsAccount), {}),
     budgetStores: types.optional(types.map(BudgetStore), {}),
-    tickPeriod: 10 * 1000, // 10 sec
+    tickPeriod: 10 * 1000, // 100 sec
   })
 
   .actions(self => {
@@ -64,12 +65,12 @@ const AwsAccountsStore = BaseStore.named('AwsAccountsStore')
     return {
       async doLoad() {
         const awsAccounts = (await getAwsAccounts()) || [];
-        const statuses = await getAllAccountsPermissionStatus();
+        const permissionStatuses = await getAllAccountsPermissionStatus();
         // We try to preserve existing accounts data and merge the new data instead
         // We could have used self.accounts.replace(), but it will do clear() then merge()
         self.runInAction(() => {
           awsAccounts.forEach(awsAccount => {
-            awsAccount = { ...awsAccount, permissionStatus: statuses.newStatus[awsAccount.id] };
+            awsAccount = { ...awsAccount, permissionStatus: permissionStatuses.statuses[awsAccount.id] };
             const awsAccountsModel = AwsAccount.create(awsAccount);
             const previous = self.awsAccounts.get(awsAccountsModel.id);
             if (!previous) {
@@ -102,7 +103,11 @@ const AwsAccountsStore = BaseStore.named('AwsAccountsStore')
         const updatedAccount = await updateAwsAccount(awsAccountUUID, updatedAcctInfo);
         const currentAccount = self.getAwsAccount(awsAccountUUID);
         currentAccount.setAwsAccounts(updatedAccount);
-        await self.load();
+      },
+
+      checkAccountPermissionStatus: async awsAccountUUID => {
+        const res = await getAccountPermissionsStatus(awsAccountUUID);
+        return res;
       },
 
       getBudgetStore: awsAccountUUID => {
